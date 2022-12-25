@@ -1,0 +1,141 @@
+---
+title: "Macarena's paper"
+subtitle: Plots HBA1C and classifications
+author: "Elena Eyre, PhD"
+date: '2022-06-30'
+linkcolor: "steelblue2"
+#urlcolor: "tomato"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+#fontsize: 8 pt 
+#geometry: margin=1cm
+---
+
+# Loadings
+
+## 1.1 Libraries of functions: 
+
+I uploaded data and packages of necessary functions to perform the calculations, and set the working directory.
+
+```{r, setup, results=FALSE, include=FALSE, echo = FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+package_to_load <- c("readxl", "readr", "dplyr", "ggplot2", "tidyr", "dplyr","RColorBrewer", "car", "gplots")
+for (package in package_to_load) {
+  require(package, character.only = T); packageVersion(package)
+}
+extra_to_load <- c("knitr","stringr", "stringi", "ggrepel","ggpubr", "ggbreak","reshape2","ggfortify","cowplot","pheatmap","Seurat","data.table","Matrix")
+for (package in extra_to_load) {
+  require(package, character.only = T); packageVersion(package)
+}
+rm(package_to_load, extra_to_load)
+```
+
+## 1.2 Tables
+
+First, I load the predicted values and their estandard error.
+
+```{r}
+hba1c <- read_excel("/Volumes/ELENA_3/IDIBAPS/Macarena/Book1_adapted_Elena.xlsx", 
+    sheet = "Plot")
+rownames(hba1c) <- hba1c$...1
+hba1c_t <- as.data.frame(t(hba1c))
+hba1c_t <- hba1c_t[-1,]
+hba1c_t <- as.data.frame(apply(hba1c_t,2,as.numeric))
+rownames(hba1c_t) <- colnames(hba1c)[-1]
+hba1c_t$Category <- rownames(hba1c_t)
+hba1c_t <- hba1c_t %>% arrange(Category)
+```
+
+Second table is the one with the confidence intervals:
+```{r}
+hba1c_ci <- read_excel("/Volumes/ELENA_3/IDIBAPS/Macarena/Book1_adapted_Elena.xlsx", 
+    sheet = "Conf_Int")
+rownames(hba1c_ci) <- hba1c_ci$...1
+hba1c_tci <- as.data.frame(t(hba1c_ci))
+hba1c_tci <- hba1c_tci[-1,]
+hba1c_tci <- as.data.frame(apply(hba1c_tci,2,as.numeric))
+rownames(hba1c_tci) <- colnames(hba1c_ci)[-1]
+hba1c_tci$Category <- rownames(hba1c_tci)
+hba1c_tci <- hba1c_tci %>% arrange(Category)
+hba1c_tci <- left_join(hba1c_tci,hba1c_t,by="Category")
+```
+
+
+# 2. Plots
+
+First, I plot the predicted values and the corresonding standard error:
+
+```{r, fig.width=5,fig.height=4}
+order_donations <- c("At least once a week","Less than weekly, at least monthly","Less often than once a month","Never")
+#ggplot(hba1c_t, aes(x=order_donations, y=HBA1C, fill=order_donations)) +
+#  geom_bar(position=position_dodge(), stat="identity", colour='black') +
+#  geom_errorbar(aes(ymin=HBA1C-hba1c_t$`Std. Err`, ymax=HBA1C+hba1c_t$`Std. Err`), width=.2) +geom_hline(yintercept=0, linetype="dashed", color = "gray")+
+#  labs(x = "Donations frequency", y= "HBA1C\n(dy/dx)") + scale_fill_brewer(palette = "PuOr") +
+#  theme_classic() + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+#ggplot(hba1c_t, aes(x=order_donations, y=HBA1C, fill=Category)) +
+#  geom_bar(position=position_dodge(), stat="identity", colour='black') +
+#  geom_errorbar(aes(ymin=HBA1C-hba1c_t$`Std. Err`, ymax=HBA1C+hba1c_t$`Std. Err`), width=.2) +geom_hline(yintercept=0, linetype="dashed", color = "gray")+
+#  labs(x = "Donations frequency", y= "HBA1C") + scale_fill_brewer(palette = "PuOr") +
+#  theme_classic() + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+#pdf(file = "Paper_maca_HBA1C_means_and_StdErr.pdf", width = 6, height = 5)
+ggplot(hba1c_t, aes(x=reorder(order_donations, order_donations), y=HBA1C, fill=order_donations)) +
+  geom_bar(position=position_dodge(), stat="identity", colour='black') +
+  geom_errorbar(aes(ymin=HBA1C-hba1c_t$`Std. Err`, ymax=HBA1C+hba1c_t$`Std. Err`), width=.2) +geom_hline(yintercept=0, linetype="dashed", color = "gray")+
+  labs(x = "Donations frequency", y= "HBA1C\n(dy/dx)",fill="Category") + scale_fill_brewer(palette = "PuOr") +
+  theme_classic() + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+#dev.off()
+#pdf(file = "Paper_maca_HBA1C_means_and_StdErr_rotated.pdf", width = 8, height = 4)
+ggplot(hba1c_t, aes(x=reorder(order_donations, order_donations), y=HBA1C, fill=order_donations)) +
+  geom_bar(position=position_dodge(), stat="identity", colour='black') +
+  geom_errorbar(aes(ymin=HBA1C-hba1c_t$`Std. Err`, ymax=HBA1C+hba1c_t$`Std. Err`), width=.2) +geom_hline(yintercept=0, linetype="dashed", color = "gray")+
+  labs(x = "Donations frequency", y= "HBA1C\n(dy/dx)",fill="Category") + scale_fill_brewer(palette = "PuOr") +
+  theme_classic() + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+ coord_flip()
+#dev.off()
+#ggplot(hba1c_t, aes(x=reorder(Category, -HBA1C), y=HBA1C, fill=Category)) +
+#  geom_bar(position=position_dodge(), stat="identity", colour='black') +
+#  geom_errorbar(aes(ymin=HBA1C-hba1c_t$`Std. Err`, ymax=HBA1C+hba1c_t$`Std. Err`), width=.2) +geom_hline(yintercept=0, linetype="dashed", color = "gray")+
+#  labs(x = "Donations frequency", y= "HBA1C\n(superior and inferior)") + scale_fill_brewer(palette = "PuOr") +
+#  theme_classic() + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+```
+
+The second plot corresponds to the confidence interval:
+```{r}
+df <- reshape2::melt(hba1c_tci[,1:3])
+order_donations <-as.factor(c("At least once a week","Less than weekly, at least monthly","Less often than once a month","Never","At least once a week","Less than weekly, at least monthly","Less often than once a month","Never"))
+order_donations2 <-as.factor(c("At least once a week","At least once a week","Less than weekly, at least monthly","Less than weekly, at least monthly","Less often than once a month","Less often than once a month","Never","Never"))
+df$order_donations3 <- c(1,3,2,4,1,3,2,4)
+
+pdf(file = "Paper_maca_HBA1C_conf_int.pdf", width = 6, height = 5)
+ggplot(df, aes(x=reorder(Category, order_donations3), y=value, fill=variable)) +
+  geom_bar(stat="identity", position=position_dodge(), colour='black') +
+#  geom_errorbar(aes(ymin=HBA1C-hba1c_t$`Std. Err`, ymax=HBA1C+hba1c_t$`Std. Err`), width=.2) +geom_hline(yintercept=0, linetype="dashed", color = "gray")+
+  labs(x = "Donations frequency", y= "HBA1C\n(dy/dx)",fill="Category") + scale_fill_brewer(palette = "PuOr") +
+  theme_classic() + theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+dev.off()
+
+pdf(file = "Paper_maca_HBA1C_conf_int_rotated.pdf", width = 6, height = 5)
+ggplot(df, aes(y=reorder(Category, order_donations3), x=value, fill=variable)) +
+  geom_bar(stat="identity", position=position_dodge(), colour='black') +
+#  geom_errorbar(aes(ymin=HBA1C-hba1c_t$`Std. Err`, ymax=HBA1C+hba1c_t$`Std. Err`), width=.2) +geom_hline(yintercept=0, linetype="dashed", color = "gray")+
+  labs(y = "Donations frequency", x= "",fill="Category") + scale_fill_brewer(palette = "PuOr") +
+  theme_classic() + theme(legend.position = "bottom")
+dev.off()
+#ggplot(hba1c_tci, aes(x=HBA1C, y=Category, color=Category)) +
+  #geom_point() +
+#  geom_errorbar(aes(xmin = hba1c_tci$`HBA1C _inf`, xmax = hba1c_tci$HBA1C_sup))+scale_color_brewer(palette = "PuOr") +labs(x = "Donations frequency", y= "HBA1C\n(superior and inferior)",color="Frequency")+theme_bw()
+#ggplot(hba1c_tci, aes(x=HBA1C, y=reorder(Category, HBA1C), color=Category)) +
+  #geom_point() +
+#  geom_errorbar(aes(xmin = hba1c_tci$`HBA1C _inf`, xmax = hba1c_tci$HBA1C_sup))+scale_color_brewer(palette = "PuOr") +labs(x = "Donations frequency", y= "HBA1C\n(superior and inferior)",color="Frequency")+theme_bw()
+#ggplot(hba1c_tci, aes(x=HBA1C, y=reorder(Category, -HBA1C), color=Category)) +
+  #geom_point() +
+#  geom_errorbar(aes(xmin = hba1c_tci$`HBA1C _inf`, xmax = hba1c_tci$HBA1C_sup))+scale_color_brewer(palette = "PuOr") +labs(x = "Donations frequency", y= "HBA1C\n(superior and inferior)",color="Frequency")+theme_bw()
+```
+

@@ -1,0 +1,230 @@
+---
+title: "NMR visualizations"
+subtitle: Metabolites' levels visualization
+author: "Elena Eyre, PhD"
+date: '2022-05-24'
+linkcolor: "steelblue2"
+#urlcolor: "tomato"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_depth: 3
+#fontsize: 8 pt 
+#geometry: margin=1cm
+---
+
+# 1 Load libraries of functions: 
+
+I uploaded data and packages of necessary functions to perform the calculations, and set the working directory.
+
+```{r, setup, results=FALSE, include=FALSE, echo = FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+package_to_load <- c("readxl", "readr", "dplyr", "ggplot2", "tidyr", "dplyr","RColorBrewer", "car", "gplots")
+for (package in package_to_load) {
+  require(package, character.only = T); packageVersion(package)
+}
+extra_to_load <- c("knitr","stringr", "stringi", "ggrepel","ggpubr", "ggbreak","reshape2","ggfortify","cowplot","pheatmap","Seurat","data.table","Matrix")
+for (package in extra_to_load) {
+  require(package, character.only = T); packageVersion(package)
+}
+rm(package_to_load, extra_to_load)
+```
+
+# 2 Load data:
+
+I have adapted the Excel file "NMR_Elena.xlsx" in a new Excel file where I have 3 tabs of the different tissue results, one with all the samples, and one tab of the metadata (groups' information):
+
+```{r}
+library(readxl)
+#all <- read_excel("G:/Trab_Elena/IDIBAPS/Marc_requests/NMR_Elena_adapted_Elena.xlsx", sheet = "All")
+all <- read_excel("NMR_Elena_adapted_Elena.xlsx", sheet = "All")
+forebrain <- read_excel("NMR_Elena_adapted_Elena.xlsx", sheet = "Forebrain")
+midbrain <- read_excel("NMR_Elena_adapted_Elena.xlsx", sheet = "Midbrain")
+hindbrain <- read_excel("NMR_Elena_adapted_Elena.xlsx", sheet = "Hindbrain")
+metadata <- read_excel("NMR_Elena_adapted_Elena.xlsx", sheet = "Metadata")
+```
+
+# 3 Pre-process data:
+
+First, pre-process cases that there was no measurement ("x"): I replace que non-measurement by NA value ("non-available") and remove the 2 samples that do not have any value.
+
+```{r}
+all <- all[, -c(20,23)]
+all$Helper_M2[all$Helper_M2=='x'] <-0
+```
+
+Statistics per group:
+
+ - Marc requested a t-test between Helper vs Non-helpers inside each brain region: all the p-values in t-test were > 0.05.
+
+```{r}
+# Forebrain:
+df2 <- reshape2::melt(forebrain,id= c("Metabolites"))
+colnames(df2)[2] <- 'Replicates'
+df3 <- inner_join(metadata, df2, by= 'Replicates')
+df3 <- df3 %>% group_by(Group)%>% filter(Tissue == 'Forebrain')
+df3$value <- sapply(df3$value, as.numeric)
+forebrain_t_result <- t.test(value ~ Group, data = df3)
+forebrain$p_values <- rep(forebrain_t_result$p.value, each=nrow(forebrain))
+#adj.p_values <- p.adjust(p_values, method = "fdr")
+compare_means(value ~ Group,  data = df3, ref.group = "Helper", method = "t.test")
+with(df3, t.test(value[Group == "Helper"], value[Group == "Non_helper"]))
+forebrain_t_result2 <- wilcox.test(value ~ Group, data = df3)
+
+library(car)
+with(df3, leveneTest(value ~ factor(Group), center = "median"))
+with(df3, wilcox.test(value ~ factor(Group), center = "median", alternative="two.sided",exact=TRUE,correct=FALSE))
+
+# Midbrain:
+df2 <- reshape2::melt(midbrain,id= c("Metabolites"))
+colnames(df2)[2] <- 'Replicates'
+df3 <- right_join(metadata, df2, by= 'Replicates')
+df3 <- df3 %>% group_by(Group, Tissue) %>% filter(Tissue == 'Midbrain')
+df3$value <- sapply(df3$value, as.numeric)
+midbrain_t_result <- t.test(value ~ Group, data = df3)
+midbrain$p_values <- rep(midbrain_t_result$p.value, each=nrow(midbrain))
+compare_means(value ~ Group,  data = df3, ref.group = "Helper", method = "t.test")
+with(df3, t.test(value[Group == "Helper"], value[Group == "Non_helper"]))
+midbrain_t_result2 <- wilcox.test(value ~ Group, data = df3)
+
+library(car)
+with(df3, leveneTest(value ~ factor(Group), center = "median"))
+with(df3, wilcox.test(value ~ factor(Group), center = "median", alternative="two.sided",exact=TRUE,correct=FALSE))
+
+# Hindbrain:
+df2 <- reshape2::melt(hindbrain,id= c("Metabolites"))
+colnames(df2)[2] <- 'Replicates'
+df3 <- right_join(metadata, df2, by= 'Replicates')
+df3 <- df3 %>% group_by(Group, Tissue) %>% filter(Tissue == 'Hindbrain')
+df3$value <- sapply(df3$value, as.numeric)
+hindbrain_t_result <- t.test(value ~ Group, data = df3)
+hindbrain$p_values <- rep(hindbrain_t_result$p.value, each=nrow(hindbrain))
+compare_means(value ~ Group,  data = df3, ref.group = "Helper", method = "t.test")
+with(df3, t.test(value[Group == "Helper"], value[Group == "Non_helper"]))
+hindbrain_t_result2 <- wilcox.test(value ~ Group, data = df3)
+
+library(car)
+with(df3, leveneTest(value ~ factor(Group), center = "median"))
+with(df3, wilcox.test(value ~ factor(Group), center = "median", alternative="two.sided",exact=TRUE,correct=FALSE))
+```
+
+
+ - When I tried an anova of the groups and tissues, there was no significant outcome.
+```{r}
+library(reshape2)
+df2 <- reshape2::melt(all,id= c("Metabolites"))
+colnames(df2)[2] <- 'Samples'
+df3 <- left_join(metadata, df2, by= 'Samples')
+df3$value <- sapply(df3$value, as.numeric)
+df3 <- group_by(df3, Tissue, Group)
+
+
+fit_total <- lm(value ~ Tissue + Group + Tissue*Group, df3) 
+summary(fit_total)
+aov <- anova(fit_total) 
+aov # After adjusting
+```
+
+
+# 4 Heatmap:
+
+First, pre-process cases that there was no measurement ("x"): I replace que non-measurement by NA value ("non-available").
+
+```{r}
+annotation_col = as.data.frame(cbind((metadata$Tissue),
+                                     (metadata$Group))) 
+rownames(annotation_col) <- metadata$Samples
+colnames(annotation_col) <- c('Tissue','Group')
+annotation_col$ID <- rownames(annotation_col)
+annotation_col <- annotation_col %>% group_by_all() %>% as.data.frame()
+rownames(annotation_col) <- annotation_col$ID
+Samples <-annotation_col$ID
+
+matriu <- as.matrix(apply(all[,-1],2,as.numeric))
+rownames(matriu) <- all$Metabolites
+dim(matriu) #  14 24
+
+#my_palette <- colorRampPalette(c("dodgerblue4", "white", "firebrick"))(n = 1000) # Cell colors
+my_palette <- colorRampPalette(c("darkgoldenrod2", "white", "darkviolet"))(n = 1000) # Cell colors
+unique(annotation_col$Group) # "Non_helper" "Helper" 
+unique(annotation_col$Tissue) # "Forebrain" "Midbrain"  "Hindbrain"
+ann_colors = list(Tissue=c("Forebrain" = "cadetblue1", "Midbrain" = "royalblue1", "Hindbrain" = "royalblue4"  #"darkgoldenrod2"#, "Fast" = "tomato", "Refed" = "chocolate1", "Sens" = "darkolivegreen2" lemonchiffon1
+                           ),
+                  Group= c("Non_helper"= "darkolivegreen2","Helper"= "darkseagreen4"))
+
+#pdf(file = "Heatmap metabolites helpers_vs_nonHelpers Forebrain_Midbrain_Hindbrain.pdf", width = 8, height = 18)
+pheatmap(matriu, 
+         color = my_palette, annotation_colors = ann_colors, na_col = "gray",
+         cellwidth = 8, cellheight = 8, width =8, height = 8, 
+         fontsize = 10,fontsize_row = 6, fontsize_col = 4, 
+         show_rownames = TRUE, labels_row = rownames(matriu), #annotation_row = annotation_row[,-3], 
+         show_colnames = TRUE,labels_col = colnames(matriu), annotation_col = annotation_col[,-3], 
+         legend = TRUE, border_color = NA, drop_levels = TRUE, 
+         main = "NMR.\nTo compare area and groups.\n Scaled by metabolite (comparison between samples).", 
+         scale = "row",
+         cluster_rows= F, cluster_cols = F, treeheight_row = 5) 
+#dev.off()
+```
+
+Heatmap of means:
+
+```{r}
+library(reshape2)
+df2 <- reshape2::melt(all,id= c("Metabolites"))
+colnames(df2)[2] <- 'Samples'
+df3 <- left_join(metadata, df2, by= 'Samples')
+df3 <- df3[-which(is.na(df3$value)==TRUE),]
+df3$value <- sapply(df3$value, as.numeric)
+df4 <- df3 %>% group_by(Tissue, Group,Metabolites) %>% summarise(Means=mean(value),# p_values =t.test(value),
+                                                                 .groups="keep")
+library(tidyverse)
+df5 <- df4 %>% spread(key = "Metabolites", "Means") %>% arrange('Metabolites') 
+df5_t <- t(df5[,-c(1:2)])
+
+ttest_results <- wilcox.test(Means ~ Group, data = df4)
+ttest_results
+
+annotation_col = as.data.frame(cbind((df5$Tissue),
+                                     (df5$Group))) 
+#rownames(annotation_col) <- rownames(df5)
+colnames(annotation_col) <- c('Tissue','Group')
+#annotation_col$ID <- rownames(annotation_col)
+annotation_col <- annotation_col %>% group_by_all() %>% as.data.frame()
+#rownames(annotation_col) <- annotation_col$ID
+#Samples <-annotation_col$ID
+
+matriu <- as.matrix(apply(df5_t,2,as.numeric))
+rownames(matriu) <- rownames(df5_t)
+dim(matriu) #  14 6
+annotation_col$ID <- paste("V",seq(1:6))
+colnames(matriu) <- paste("V",seq(1:6))
+rownames(annotation_col) <- annotation_col$ID
+Samples <-annotation_col$ID
+
+#my_palette <- colorRampPalette(c("dodgerblue4", "white", "firebrick"))(n = 1000) # Cell colors
+my_palette <- colorRampPalette(c("darkgoldenrod2", "white", "darkviolet"))(n = 1000) # Cell colors
+unique(annotation_col$Group) # "Non_helper" "Helper" 
+unique(annotation_col$Tissue) # "Forebrain" "Midbrain"  "Hindbrain"
+ann_colors = list(Tissue=c("Forebrain" = "cadetblue1", "Midbrain" = "royalblue1", "Hindbrain" = "royalblue4"  #"darkgoldenrod2"#, "Fast" = "tomato", "Refed" = "chocolate1", "Sens" = "darkolivegreen2" lemonchiffon1
+                           ),
+                  Group= c("Non_helper"= "darkolivegreen2","Helper"= "darkseagreen4"))
+
+#pdf(file = "Heatmap metabolites helpers_vs_nonHelpers Forebrain_Midbrain_Hindbrain_means.pdf", width = 8, height = 10)
+pheatmap(matriu, 
+         color = my_palette, annotation_colors = ann_colors, na_col = "gray",
+         cellwidth = 12, cellheight = 12, width =10, height = 10, 
+         fontsize = 10,fontsize_row = 8, fontsize_col = 4, 
+         show_rownames = TRUE, labels_row = rownames(matriu), #annotation_row = annotation_row[,-3], 
+         show_colnames = FALSE,labels_col = colnames(matriu), annotation_col = annotation_col[,-3], 
+         legend = TRUE, border_color = NA, drop_levels = TRUE, 
+         main = "NMR.\nTo compare area and groups.\n Scaled by metabolite (comparison between groups).\np-values: all > 0.05", 
+         scale = "row",
+         cluster_rows= F, cluster_cols = F, treeheight_row = 5) 
+#dev.off()
+
+
+```
