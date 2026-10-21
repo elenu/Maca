@@ -39,7 +39,7 @@ Fed <- rownames(Experiment_design)[Experiment_design$Food=='Fed']
 Restr <- rownames(Experiment_design)[Experiment_design$Food=='Food Restricted']
 
 # 5. Plot ----
-pdf(file = "Levelplot all sections toguether.pdf",width = 10, height = 20) 
+pdf(file = "Levelplot all sections together.pdf",width = 10, height = 20) 
 levelplot(value ~ Var2 * Var1, df3, xlab="Opening lapse (Days)", ylab = "Mice",aspect="iso", scales=list(x=list(rot=90)),
           panel = panel.levelplot.points,cex = 0.2,main = "Time until mice open the door.") + 
   layer_(panel.2dsmoother(..., n = 300)) 
@@ -61,7 +61,7 @@ levelplot(t(df2), col.regions = magma(100),main = "Time until mice open the door
 levelplot(t(df2), col.regions=colorRampPalette(c("blue", "yellow"), space = "rgb")(120),main = "Time until mice open the door.", xlab="Opening lapse (Days)", ylab = "Mice",aspect="iso", scales=list(x=list(rot=90))) 
 dev.off()
 
-# 6. Split sections and try it again ----
+# 6. Split sections and repeat ----
 
 fed <- as.data.frame(df3[df3$Var1 %in% Fed,])
 restr <- as.data.frame(df3[df3$Var1 %in% Restr,])
